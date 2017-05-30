@@ -106,7 +106,7 @@ func main() {
 	printStr(0, 7, "+10% speed      : ]", false)
 	printStr(0, 8, "half speed      : {", false)
 	printStr(0, 9, "double speed    : }", false)
-	w -= 29
+	w += 29
 
 	left := (w - mapWidth) / 2
 	top := (h - mapHeight) / 2

@@ -61,6 +61,7 @@ func main() {
 }
 
 func createReplayFile() {
+	os.Mkdir("replays/", 0755)
 	fp, err := os.Create("replays/" + time.Now().Format("20060102150405.txt"))
 	if err != nil {
 		panic(err)
