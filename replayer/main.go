@@ -37,11 +37,12 @@ type Options struct {
 type Player struct {
 	utils.Player
 	Moves []utils.Direction
+	Fg    termbox.Attribute
 }
 
 func (p *Player) Fill() {
 	//fills the player's position with it's id
-	termbox.SetCell(left+p.X, top+p.Y, rune(p.IdStr), fg, bg)
+	termbox.SetCell(left+p.X, top+p.Y, rune(p.IdStr), p.Fg, bg)
 }
 
 func (p *Player) Move2() {
@@ -51,9 +52,49 @@ func (p *Player) Move2() {
 	p.LastMove = p.Moves[index]
 }
 
-func (p *Player) MoveFill() {
+func (p *Player) MoveFill(indexDiff int) {
 	//draws "x" to current position, player's id to the next one
-	termbox.SetCell(left+p.X, top+p.Y, 'x', fg, bg)
+	var toDraw rune
+	if index > 1 {
+		lastLast := p.Moves[index+indexDiff-2]
+		switch p.LastMove {
+		case utils.Up:
+			if lastLast == utils.Right {
+				toDraw = '┘'
+			} else if lastLast == utils.Left {
+				toDraw = '└'
+			} else {
+				toDraw = '|'
+			}
+		case utils.Left:
+			if lastLast == utils.Up {
+				toDraw = '┐'
+			} else if lastLast == utils.Down {
+				toDraw = '┘'
+			} else {
+				toDraw = '─'
+			}
+		case utils.Down:
+			if lastLast == utils.Right {
+				toDraw = '┐'
+			} else if lastLast == utils.Left {
+				toDraw = '┌'
+			} else {
+				toDraw = '|'
+			}
+		case utils.Right:
+			if lastLast == utils.Up {
+				toDraw = '┌'
+			} else if lastLast == utils.Down {
+				toDraw = '└'
+			} else {
+				toDraw = '─'
+			}
+		}
+	} else {
+		toDraw = 'x'
+	}
+	termbox.SetCell(left+p.X, top+p.Y, toDraw, p.Fg, bg)
 	p.Move2()
 }
 
@@ -147,12 +188,14 @@ func main() {
 	p0.Y = readReplayInt()
 	p0.IdStr = '0'
 	p0.Moves = make([]utils.Direction, 0)
+	p0.Fg = termbox.ColorGreen
 	p0.Fill()
 	p1 = new(Player)
 	p1.X = readReplayInt()
 	p1.Y = readReplayInt()
 	p1.IdStr = '1'
 	p1.Moves = make([]utils.Direction, 0)
+	p1.Fg = termbox.ColorRed
 	p1.Fill()
 	termbox.Flush()
 	var d utils.Direction
@@ -258,15 +301,15 @@ func forward(turnCount int) bool {
 	//go forward @turnCount turns, returns true if ended
 	for ; turnCount > 0; turnCount-- {
 		if index+1 >= len(p0.Moves) {
-			p0.MoveFill()
-			p1.MoveFill()
-			printCenter(top+mapH, "Press any key to quit...")
+			p0.MoveFill(1)
+			p1.MoveFill(1)
+			printCenter(top+mapH+1, "Press any key to quit...")
 			termbox.PollEvent()
 			return true
 		}
 		index++
-		p0.MoveFill()
-		p1.MoveFill()
+		p0.MoveFill(0)
+		p1.MoveFill(0)
 		termbox.Flush()
 	}
 	return false
