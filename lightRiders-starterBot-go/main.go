@@ -33,6 +33,8 @@ func main() {
 		}
 	}()
 
+	botInit()
+	mapInit()
 	var text string
 	var textParts []string
 	running := true
@@ -62,6 +64,14 @@ func main() {
 	}
 }
 
+func writeReplayInt(value int) {
+	replayWriter.WriteRune(utils.REPLAY_INC + rune(value))
+}
+
+func writeReplayDirection(value utils.Direction) {
+	replayWriter.WriteRune(utils.REPLAY_INC + rune(value))
+}
+
 func createReplayFile() {
 	os.Mkdir(utils.REPLAY_DIR, 0755)
 	fp, err := os.Create(path.Join(utils.REPLAY_DIR, time.Now().Format("20060102150405.txt")))
@@ -69,7 +79,15 @@ func createReplayFile() {
 		panic(err)
 	}
 	replayWriter = bufio.NewWriter(fp)
-	replayWriter.WriteRune(rune(mapWidth))
-	replayWriter.WriteRune(rune(mapHeight))
-	replayWriter.WriteRune('\n')
+
+	//first two runes are the width and height of the replay
+	writeReplayInt(field.Width)
+	writeReplayInt(field.Height)
+
+	//then x, y positions of the first and second players
+	writeReplayInt(oppBot.X)
+	writeReplayInt(oppBot.Y)
+	writeReplayInt(ownBot.X)
+	writeReplayInt(ownBot.Y)
+	replayWriter.Flush()
 }

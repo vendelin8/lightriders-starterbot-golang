@@ -24,16 +24,16 @@ func (d Direction) String() string {
 	return "wtf"
 }
 
-func (d Direction) NewPos(x, y int) (int, int) {
+func (d Direction) Reverse() Direction {
 	switch d {
 	case Up:
-		return x, y - 1
+		return Down
 	case Right:
-		return x + 1, y
+		return Left
 	case Down:
-		return x, y + 1
+		return Up
 	case Left:
-		return x - 1, y
+		return Right
 	}
-	return 0, 0
+	return Wtf
 }

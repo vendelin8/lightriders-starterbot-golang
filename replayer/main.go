@@ -1,3 +1,4 @@
+//lightriders visualizer with termbox console drawing
 package main
 
 import (
@@ -15,12 +16,52 @@ import (
 )
 
 var (
-	opts Options
+	opts        Options
+	w, h        int //width and height of the termbox
+	index       int //the current step
+	bg, fg      termbox.Attribute
+	mapW, mapH  int //width and height of the field
+	replayReder *bufio.Reader
+	ticker      *time.Ticker
+	tickerC     <-chan time.Time
+	top, left   int //left and top of the centered field
+	p0, p1      *Player
+	running     bool
 )
 
 type Options struct {
 	File  string `short:"f" long:"file" description:"file to replay, last one will used if empty"`
-	Delay int    `short:"d" long:"delay" description:"delay in millisec between turns" default:"1000"`
+	Delay int    `short:"d" long:"delay" description:"delay in millisec between turns" default:"600"`
+}
+
+type Player struct {
+	utils.Player
+	Moves []utils.Direction
+}
+
+func (p *Player) Fill() {
+	//fills the player's position with it's id
+	termbox.SetCell(left+p.X, top+p.Y, rune(p.IdStr), fg, bg)
+}
+
+func (p *Player) Move2() {
+	//moves, fills and updates last move
+	p.Move()
+	p.Fill()
+	p.LastMove = p.Moves[index]
+}
+
+func (p *Player) MoveFill() {
+	//draws "x" to current position, player's id to the next one
+	termbox.SetCell(left+p.X, top+p.Y, 'x', fg, bg)
+	p.Move2()
+}
+
+func (p *Player) UnMove() {
+	//undos one move
+	termbox.SetCell(left+p.X, top+p.Y, '.', fg, bg)
+	p.LastMove = p.Moves[index].Reverse()
+	p.Move2()
 }
 
 func main() {
@@ -44,7 +85,7 @@ func main() {
 		}
 	}()
 
-	if len(opts.File) == 0 {
+	if len(opts.File) == 0 { //searching for last replay
 		fileInfos, err := ioutil.ReadDir(utils.REPLAY_DIR)
 		if err != nil {
 			panic(err)
@@ -63,129 +104,73 @@ func main() {
 		}
 	}
 
-	fp, err := os.Open(opts.File)
+	fp, err := os.Open(opts.File) //reading replay
 	if err != nil {
 		panic(err)
 	}
 	defer fp.Close()
-	scanner := bufio.NewScanner(fp)
-	scanner.Scan()
-	t := scanner.Text()
-	mapWidth := int(t[0])
-	mapHeight := int(t[1])
+	replayReder = bufio.NewReader(fp)
+	mapW = readReplayInt() //first 2 runes: width and height
+	mapH = readReplayInt()
 
-	err = termbox.Init()
+	err = termbox.Init() //termbox console drawing init
 	if err != nil {
 		panic(err)
 	}
 	defer termbox.Close()
-	bg := termbox.ColorWhite
-	fg := termbox.ColorBlack
-	w, h := termbox.Size()
+	bg = termbox.ColorWhite
+	fg = termbox.ColorBlack
+	w, h = termbox.Size()
 
-	printStr := func(x, y int, text string, flush bool) {
-		for i, value := range text {
-			termbox.SetCell(x+i, y, rune(value), fg, bg)
-		}
-		if flush {
-			termbox.Flush()
-		}
-	}
+	//info to the screen
+	printStr(0, 0, "quit            : Ctrl+C, Esc")
+	printStr(0, 1, "back 1 turn     : Left")
+	printStr(0, 2, "back 10 turns   : Down")
+	printStr(0, 3, "forward 1 turn  : Right")
+	printStr(0, 4, "forward 10 turns: Up")
+	printStr(0, 5, "play/pause      : Space")
+	printStr(0, 6, "-10% speed      : [")
+	printStr(0, 7, "+10% speed      : ]")
+	printStr(0, 8, "half speed      : {")
+	printStr(0, 9, "double speed    : }")
 
-	printStr(0, 0, "quit            : Ctrl+C, Esc", false)
-	printStr(0, 1, "back 1 turn     : Left", false)
-	printStr(0, 2, "back 10 turns   : Down", false)
-	printStr(0, 3, "forward 1 turn  : Right", false)
-	printStr(0, 4, "forward 10 turns: Up", false)
-	printStr(0, 5, "play/pause      : Space", false)
-	printStr(0, 6, "-10% speed      : [", false)
-	printStr(0, 7, "+10% speed      : ]", false)
-	printStr(0, 8, "half speed      : {", false)
-	printStr(0, 9, "double speed    : }", false)
-
-	left := (w - mapWidth) / 2
-	top := (h - mapHeight) / 2
-	for i := 0; i < mapHeight; i++ {
-		for j := 0; j < mapWidth; j++ {
+	left = (w - mapW) / 2 //init map with dots
+	top = (h - mapH) / 2
+	for i := 0; i < mapH; i++ {
+		for j := 0; j < mapW; j++ {
 			termbox.SetCell(left+j, top+i, '.', fg, bg)
 		}
 	}
 
-	index := 0
-	lines := make([][]int, 0)
-	var line []int
-	for scanner.Scan() {
-		t = scanner.Text()
-		linesTmp := make([]int, 4)
-		linesTmp[0] = left + int(t[0]) - utils.REPLAY_INC
-		linesTmp[1] = top + int(t[1]) - utils.REPLAY_INC
-		linesTmp[2] = left + int(t[2]) - utils.REPLAY_INC
-		linesTmp[3] = top + int(t[3]) - utils.REPLAY_INC
-		lines = append(lines, linesTmp)
-	}
-
-	if err = scanner.Err(); err != nil {
-		panic(err)
-	}
-
-	updateSingle := func(a, b rune) {
-		termbox.SetCell(line[0], line[1], a, fg, bg)
-		termbox.SetCell(line[2], line[3], b, fg, bg)
-	}
-
-	line = lines[index]
-	updateSingle('1', '0')
+	p0 = new(Player) //init players
+	p0.X = readReplayInt()
+	p0.Y = readReplayInt()
+	p0.IdStr = '0'
+	p0.Moves = make([]utils.Direction, 0)
+	p0.Fill()
+	p1 = new(Player)
+	p1.X = readReplayInt()
+	p1.Y = readReplayInt()
+	p1.IdStr = '1'
+	p1.Moves = make([]utils.Direction, 0)
+	p1.Fill()
 	termbox.Flush()
-
-	printCenter := func(y int, text string) {
-		printStr((w-len(text))/2, y, text, true)
-	}
-
-	update := func(diff int) {
-		if diff == 1 {
-			updateSingle('x', 'y')
-		} else {
-			updateSingle('.', '.')
+	var d utils.Direction
+	for { //load moves
+		d = readReplayDirection()
+		if d == utils.Wtf {
+			break
 		}
-		index += diff
-		line = lines[index]
-		updateSingle('1', '0')
-		termbox.Flush()
+		p0.Moves = append(p0.Moves, d)
+		p1.Moves = append(p1.Moves, readReplayDirection())
 	}
+	p0.LastMove = p0.Moves[0]
+	p1.LastMove = p1.Moves[0]
 
-	forward := func(turnCount int) bool {
-		for ; turnCount > 0; turnCount-- {
-			if index+1 >= len(lines) {
-				printCenter(top+mapHeight, "Press any key to quit...")
-				termbox.PollEvent()
-				return true
-			}
-			update(1)
-		}
-		return false
-	}
+	running = false
+	index = 0
 
-	backward := func(turnCount int) {
-		for ; turnCount > 0 && index > 0; turnCount-- {
-			update(-1)
-		}
-	}
-
-	var ticker *time.Ticker
-	var tickerC <-chan time.Time
-	running := false
-
-	startCounter := func() {
-		ticker = time.NewTicker(time.Millisecond * time.Duration(opts.Delay))
-		tickerC = ticker.C
-		running = true
-	}
-	stopCounter := func() {
-		ticker.Stop()
-		running = false
-	}
-
-	defer func() {
+	defer func() { //init main loop
 		if running {
 			stopCounter()
 		}
@@ -198,13 +183,7 @@ func main() {
 		}
 	}()
 
-	changeSpeed := func(delayMult float32) {
-		stopCounter()
-		opts.Delay = int(float32(opts.Delay) * delayMult)
-		startCounter()
-	}
-
-	startCounter()
+	startCounter() //start main loop
 	for {
 		select {
 		case <-tickerC:
@@ -249,4 +228,72 @@ func main() {
 			}
 		}
 	}
+}
+
+func readReplayInt() int {
+	r, _, _ := replayReder.ReadRune()
+	return int(r) - utils.REPLAY_INC
+}
+
+func readReplayDirection() utils.Direction {
+	r, _, err := replayReder.ReadRune()
+	if err != nil {
+		return utils.Wtf
+	}
+	return utils.Direction(r - utils.REPLAY_INC)
+}
+
+func printStr(x, y int, text string) {
+	for i, value := range text {
+		termbox.SetCell(x+i, y, rune(value), fg, bg)
+	}
+}
+
+func printCenter(y int, text string) {
+	printStr((w-len(text))/2, y, text)
+	termbox.Flush()
+}
+
+func forward(turnCount int) bool {
+	//go forward @turnCount turns, returns true if ended
+	for ; turnCount > 0; turnCount-- {
+		if index+1 >= len(p0.Moves) {
+			p0.MoveFill()
+			p1.MoveFill()
+			printCenter(top+mapH, "Press any key to quit...")
+			termbox.PollEvent()
+			return true
+		}
+		index++
+		p0.MoveFill()
+		p1.MoveFill()
+		termbox.Flush()
+	}
+	return false
+}
+
+func backward(turnCount int) {
+	//go back @turnCount turns
+	for ; turnCount > 0 && index > 0; turnCount-- {
+		index--
+		p0.UnMove()
+		p1.UnMove()
+		termbox.Flush()
+	}
+}
+
+func startCounter() {
+	ticker = time.NewTicker(time.Millisecond * time.Duration(opts.Delay))
+	tickerC = ticker.C
+	running = true
+}
+func stopCounter() {
+	ticker.Stop()
+	running = false
+}
+
+func changeSpeed(delayMult float32) {
+	stopCounter()
+	opts.Delay = int(float32(opts.Delay) * delayMult)
+	startCounter()
 }

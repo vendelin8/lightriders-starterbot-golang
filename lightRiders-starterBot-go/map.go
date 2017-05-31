@@ -9,11 +9,7 @@ import (
 )
 
 var (
-	mapWidth, mapHeight int
-	mapLines            [][]byte
-	ownPosX, ownPosY    int
-	oppPosX, oppPosY    int
-	ownIdStr, oppIdStr  byte
+	field *utils.Field
 )
 
 func atoi(in string) int {
@@ -24,85 +20,69 @@ func atoi(in string) int {
 func mapParseSetting(key, value string) {
 	switch key {
 	case "your_botid":
-		ownIdStr = byte(value[0])
-		ownId = atoi(value)
-		oppId = (ownId + 1) % 2
-		oppIdStr = byte(strconv.Itoa(oppId)[0])
+		ownBot.IdStr = value[0]
+		ownBot.Id = atoi(value)
+		oppBot.Id = (ownBot.Id + 1) % 2
+		oppBot.IdStr = strconv.Itoa(oppBot.Id)[0]
 	case "field_width":
-		mapWidth = atoi(value)
+		field.Width = atoi(value)
 	case "field_height":
-		mapHeight = atoi(value)
+		field.Height = atoi(value)
 	}
+}
+
+func mapInit() {
+	field = new(utils.Field)
 }
 
 func mapParse(in string) {
-	if mapLines == nil {
-		if ownId == 1 {
-			createReplayFile()
-		}
-		mapLines = make([][]byte, mapHeight)
+	if field.Rows == nil {
+		field.Rows = make([][]byte, field.Height)
 		k := 0
-		for i := 0; i < mapHeight; i++ {
-			mapLines[i] = make([]byte, mapWidth)
-			for j := 0; j < mapWidth; j++ {
-				ch := byte(in[k])
-				mapLines[i][j] = ch
+		for i := 0; i < field.Height; i++ {
+			field.Rows[i] = make([]byte, field.Width)
+			for j := 0; j < field.Width; j++ {
+				ch := in[k]
+				field.Rows[i][j] = ch
 				k += 2
 			}
 		}
-		ownPos := strings.Index(in, string(ownIdStr)) / 2
-		ownPosX = ownPos % mapWidth
-		ownPosY = ownPos / mapWidth
-		oppPos := strings.Index(in, string(oppIdStr)) / 2
-		oppPosX = oppPos % mapWidth
-		oppPosY = oppPos / mapWidth
+		MoveToMap(ownBot, in)
+		MoveToMap(oppBot, in)
+		if ownBot.Id == 1 {
+			createReplayFile()
+		}
 	} else { //updating the map only
 		//updating own position
-		mapLines[ownPosY][ownPosX] = byte('x') //for possible visualizing purposes
-		ownPosX, ownPosY = lastMove.NewPos(ownPosX, ownPosY)
-		mapLines[ownPosY][ownPosX] = ownIdStr
-
-		mapLines[oppPosY][oppPosX] = byte('y') //for possible visualizing purposes
-		oppPosX, oppPosY = whereIs(oppPosX, oppPosY, oppIdStr, in)
-		mapLines[oppPosY][oppPosX] = oppIdStr
-	}
-	if ownId == 1 {
-		replayWriter.WriteRune(utils.REPLAY_INC + rune(ownPosX))
-		replayWriter.WriteRune(utils.REPLAY_INC + rune(ownPosY))
-		replayWriter.WriteRune(utils.REPLAY_INC + rune(oppPosX))
-		replayWriter.WriteRune(utils.REPLAY_INC + rune(oppPosY))
-		replayWriter.WriteRune('\n')
-		replayWriter.Flush()
+		ownBot.MoveField(field)
+		oppBot.SetAndMoveField(in, field)
+		if ownBot.Id == 1 {
+			writeReplayDirection(oppBot.LastMove)
+			writeReplayDirection(ownBot.LastMove)
+			replayWriter.Flush()
+		}
 	}
 }
 
-func whereIs(x, y int, obj byte, in string) (int, int) {
-	//searching for obj next to pos
-	if x > 0 && in[(y*mapWidth+x-1)*2] == obj {
-		return x - 1, y
-	}
-	if x+1 < mapWidth && in[(y*mapWidth+x+1)*2] == obj {
-		return x + 1, y
-	}
-	if y > 0 && in[((y-1)*mapWidth+x)*2] == obj {
-		return x, y - 1
-	}
-	return x, y + 1
+func MoveToMap(p *utils.Player, mapStr string) {
+	pos := strings.Index(mapStr, string(p.IdStr)) / 2
+	p.X = pos % field.Width
+	p.Y = pos / field.Width
 }
 
-func getAll(x, y int, obj byte) []utils.Direction {
-	//searching for all obj next to pos
+func getAllMoves(p *utils.Player, obj byte) []utils.Direction {
+	//searching for all @obj next to the player
 	result := make([]utils.Direction, 0)
-	if x > 0 && mapLines[y][x-1] == obj {
+	if p.X > 0 && field.Rows[p.Y][p.X-1] == obj {
 		result = append(result, utils.Left)
 	}
-	if x+1 < mapWidth && mapLines[y][x+1] == obj {
+	if p.X+1 < field.Width && field.Rows[p.Y][p.X+1] == obj {
 		result = append(result, utils.Right)
 	}
-	if y > 0 && mapLines[y-1][x] == obj {
+	if p.Y > 0 && field.Rows[p.Y-1][p.X] == obj {
 		result = append(result, utils.Up)
 	}
-	if y+1 < mapHeight && mapLines[y+1][x] == obj {
+	if p.Y+1 < field.Height && field.Rows[p.Y+1][p.X] == obj {
 		result = append(result, utils.Down)
 	}
 	return result

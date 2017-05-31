@@ -7,16 +7,20 @@ import (
 )
 
 var (
-	ownId, oppId int
-	lastMove     utils.Direction
+	ownBot, oppBot *utils.Player
 )
 
+func botInit() {
+	ownBot = new(utils.Player)
+	oppBot = new(utils.Player)
+}
+
 func botGetMove() string {
-	moves := getAll(ownPosX, ownPosY, byte('.'))
-	if len(moves) == 0 {
-		lastMove = utils.Up
-	} else {
-		lastMove = moves[rand.Intn(len(moves))]
+	moves := getAllMoves(ownBot, '.') //directions of empty fields next to the player
+	if len(moves) == 0 {              //game over
+		ownBot.SetMove(utils.Up)
+	} else { //entry point: now a random is given
+		ownBot.SetMove(moves[rand.Intn(len(moves))])
 	}
-	return lastMove.String()
+	return ownBot.LastMove.String()
 }
