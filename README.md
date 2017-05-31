@@ -1,7 +1,10 @@
 # lightriders-starterbot-golang
 golang starter bot for Riddles.io's Light Riders competition
 
-Getting started:
+## WARNING:
+A big refactor is coming soon. Until that, the code is just a proof of concept for the engine creators. Please not rely on it yet.
+
+## Getting started:
 ```
 go get github.com/vendelin8/lightriders-starterbot-golang
 ```
@@ -28,3 +31,6 @@ go install github.com/vendelin8/lightriders-starterbot-golang/replayer && replay
 You can add a parameter to the replayer, which is the file to replay, otherwise it will use the last one.
 
 Have fun.
+
+## Other Go starter bot
+[Another Go bot here](https://github.com/royerk/GoLightRiders-StarterBot) to start with.
