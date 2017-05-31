@@ -10,16 +10,12 @@ import (
 
 	"github.com/jessevdk/go-flags"
 	"github.com/nsf/termbox-go"
+	"github.com/vendelin8/lightriders-starterbot-golang/utils"
 	log "gopkg.in/inconshreveable/log15.v2"
 )
 
 var (
 	opts Options
-)
-
-const (
-	replayDir  = "replays"
-	REPLAY_INC = 32
 )
 
 type Options struct {
@@ -49,13 +45,13 @@ func main() {
 	}()
 
 	if len(opts.File) == 0 {
-		fileInfos, err := ioutil.ReadDir(replayDir)
+		fileInfos, err := ioutil.ReadDir(utils.REPLAY_DIR)
 		if err != nil {
 			panic(err)
 		}
 		latest := time.Now().AddDate(-100, 0, 0)
 		for _, info := range fileInfos { //loading languages
-			name := path.Join(replayDir, info.Name())
+			name := path.Join(utils.REPLAY_DIR, info.Name())
 			s, _ := os.Stat(name)
 			if s.IsDir() {
 				continue
@@ -106,7 +102,6 @@ func main() {
 	printStr(0, 7, "+10% speed      : ]", false)
 	printStr(0, 8, "half speed      : {", false)
 	printStr(0, 9, "double speed    : }", false)
-	w += 29
 
 	left := (w - mapWidth) / 2
 	top := (h - mapHeight) / 2
@@ -122,10 +117,10 @@ func main() {
 	for scanner.Scan() {
 		t = scanner.Text()
 		linesTmp := make([]int, 4)
-		linesTmp[0] = left + int(t[0]) - REPLAY_INC
-		linesTmp[1] = top + int(t[1]) - REPLAY_INC
-		linesTmp[2] = left + int(t[2]) - REPLAY_INC
-		linesTmp[3] = top + int(t[3]) - REPLAY_INC
+		linesTmp[0] = left + int(t[0]) - utils.REPLAY_INC
+		linesTmp[1] = top + int(t[1]) - utils.REPLAY_INC
+		linesTmp[2] = left + int(t[2]) - utils.REPLAY_INC
+		linesTmp[3] = top + int(t[3]) - utils.REPLAY_INC
 		lines = append(lines, linesTmp)
 	}
 

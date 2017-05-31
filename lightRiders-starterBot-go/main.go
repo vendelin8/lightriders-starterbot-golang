@@ -4,9 +4,11 @@ import (
 	"bufio"
 	"math/rand"
 	"os"
+	"path"
 	"strings"
 	"time"
 
+	"github.com/vendelin8/lightriders-starterbot-golang/utils"
 	log "gopkg.in/inconshreveable/log15.v2"
 )
 
@@ -61,8 +63,8 @@ func main() {
 }
 
 func createReplayFile() {
-	os.Mkdir("replays/", 0755)
-	fp, err := os.Create("replays/" + time.Now().Format("20060102150405.txt"))
+	os.Mkdir(utils.REPLAY_DIR, 0755)
+	fp, err := os.Create(path.Join(utils.REPLAY_DIR, time.Now().Format("20060102150405.txt")))
 	if err != nil {
 		panic(err)
 	}

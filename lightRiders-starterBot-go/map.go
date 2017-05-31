@@ -3,6 +3,8 @@ package main
 import (
 	"strconv"
 	"strings"
+
+	"github.com/vendelin8/lightriders-starterbot-golang/utils"
 	//	log "gopkg.in/inconshreveable/log15.v2"
 )
 
@@ -12,34 +14,6 @@ var (
 	ownPosX, ownPosY    int
 	oppPosX, oppPosY    int
 	ownIdStr, oppIdStr  byte
-)
-
-type Direction int
-
-const (
-	Up Direction = iota
-	Right
-	Down
-	Left
-	Wtf
-)
-
-func (d Direction) String() string {
-	switch d {
-	case Up:
-		return "up"
-	case Right:
-		return "right"
-	case Down:
-		return "down"
-	case Left:
-		return "left"
-	}
-	return "wtf"
-}
-
-const (
-	REPLAY_INC = 32
 )
 
 func atoi(in string) int {
@@ -85,16 +59,7 @@ func mapParse(in string) {
 	} else { //updating the map only
 		//updating own position
 		mapLines[ownPosY][ownPosX] = byte('x') //for possible visualizing purposes
-		switch lastMove {
-		case Up:
-			ownPosY -= 1
-		case Down:
-			ownPosY += 1
-		case Left:
-			ownPosX -= 1
-		case Right:
-			ownPosX += 1
-		}
+		ownPosX, ownPosY = lastMove.NewPos(ownPosX, ownPosY)
 		mapLines[ownPosY][ownPosX] = ownIdStr
 
 		mapLines[oppPosY][oppPosX] = byte('y') //for possible visualizing purposes
@@ -102,10 +67,10 @@ func mapParse(in string) {
 		mapLines[oppPosY][oppPosX] = oppIdStr
 	}
 	if ownId == 1 {
-		replayWriter.WriteRune(REPLAY_INC + rune(ownPosX))
-		replayWriter.WriteRune(REPLAY_INC + rune(ownPosY))
-		replayWriter.WriteRune(REPLAY_INC + rune(oppPosX))
-		replayWriter.WriteRune(REPLAY_INC + rune(oppPosY))
+		replayWriter.WriteRune(utils.REPLAY_INC + rune(ownPosX))
+		replayWriter.WriteRune(utils.REPLAY_INC + rune(ownPosY))
+		replayWriter.WriteRune(utils.REPLAY_INC + rune(oppPosX))
+		replayWriter.WriteRune(utils.REPLAY_INC + rune(oppPosY))
 		replayWriter.WriteRune('\n')
 		replayWriter.Flush()
 	}
@@ -125,20 +90,20 @@ func whereIs(x, y int, obj byte, in string) (int, int) {
 	return x, y + 1
 }
 
-func getAll(x, y int, obj byte) []Direction {
+func getAll(x, y int, obj byte) []utils.Direction {
 	//searching for all obj next to pos
-	result := make([]Direction, 0)
+	result := make([]utils.Direction, 0)
 	if x > 0 && mapLines[y][x-1] == obj {
-		result = append(result, Left)
+		result = append(result, utils.Left)
 	}
 	if x+1 < mapWidth && mapLines[y][x+1] == obj {
-		result = append(result, Right)
+		result = append(result, utils.Right)
 	}
 	if y > 0 && mapLines[y-1][x] == obj {
-		result = append(result, Up)
+		result = append(result, utils.Up)
 	}
 	if y+1 < mapHeight && mapLines[y+1][x] == obj {
-		result = append(result, Down)
+		result = append(result, utils.Down)
 	}
 	return result
 }
