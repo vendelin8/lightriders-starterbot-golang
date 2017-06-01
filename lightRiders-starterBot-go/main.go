@@ -8,15 +8,26 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jessevdk/go-flags"
 	"github.com/vendelin8/lightriders-starterbot-golang/utils"
 	log "gopkg.in/inconshreveable/log15.v2"
 )
 
 var (
+	opts         Options
 	replayWriter *bufio.Writer
 )
 
+type Options struct {
+	OmitReplay bool `short:"R" long:"omit-replay" description:"don't save replay"`
+}
+
 func main() {
+	_, err := flags.ParseArgs(&opts, os.Args)
+	if err != nil {
+		panic(err)
+	}
+
 	reader := bufio.NewReader(os.Stdin)
 	writer := bufio.NewWriter(os.Stdout)
 	rand.Seed(time.Now().Unix())

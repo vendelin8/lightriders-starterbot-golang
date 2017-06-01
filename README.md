@@ -19,7 +19,12 @@ I assume you have the $GOPATH/bin in your PATH. Add the bot to the ```wrapper-co
 ...
 ```
 
-If you add the bot to the second place, it will automatically save replays to a directory called ```replays```.
+If you add the bot to the second place (id == 1), it will automatically save replays to a directory called ```replays```.
+
+For always omitting saving replays, add a ```-R```. So edit ```wrapper-commands.json``` like this:
+```
+"command": "lightRiders-starterBot-go -R"
+```
 
 If you want to replay, call
 ```

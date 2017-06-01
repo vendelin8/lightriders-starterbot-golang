@@ -24,6 +24,7 @@ func mapParseSetting(key, value string) {
 		ownBot.Id = atoi(value)
 		oppBot.Id = (ownBot.Id + 1) % 2
 		oppBot.IdStr = strconv.Itoa(oppBot.Id)[0]
+		opts.OmitReplay = opts.OmitReplay || ownBot.Id != 1
 	case "field_width":
 		field.Width = atoi(value)
 	case "field_height":
@@ -49,14 +50,14 @@ func mapParse(in string) {
 		}
 		MoveToMap(ownBot, in)
 		MoveToMap(oppBot, in)
-		if ownBot.Id == 1 {
+		if !opts.OmitReplay {
 			createReplayFile()
 		}
 	} else { //updating the map only
 		//updating own position
 		ownBot.MoveField(field)
 		oppBot.SetAndMoveField(in, field)
-		if ownBot.Id == 1 {
+		if !opts.OmitReplay {
 			writeReplayDirection(oppBot.LastMove)
 			writeReplayDirection(ownBot.LastMove)
 			replayWriter.Flush()

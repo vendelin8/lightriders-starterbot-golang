@@ -64,7 +64,7 @@ func (p *Player) MoveFill(indexDiff int) {
 			} else if lastLast == utils.Left {
 				toDraw = '└'
 			} else {
-				toDraw = '|'
+				toDraw = '│'
 			}
 		case utils.Left:
 			if lastLast == utils.Up {
@@ -80,7 +80,7 @@ func (p *Player) MoveFill(indexDiff int) {
 			} else if lastLast == utils.Left {
 				toDraw = '┌'
 			} else {
-				toDraw = '|'
+				toDraw = '│'
 			}
 		case utils.Right:
 			if lastLast == utils.Up {
