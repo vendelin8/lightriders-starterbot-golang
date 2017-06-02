@@ -4,6 +4,8 @@ golang starter bot for Riddles.io's Light Riders competition
 ## Getting started:
 ```
 go get github.com/vendelin8/lightriders-starterbot-golang
+go get github.com/vendelin8/lightriders-starterbot-golang/lightRiders-starterBot-go/...
+go get github.com/vendelin8/lightriders-starterbot-golang/replayer/...
 ```
 
 Create a shell/batch file with content similar to this:
