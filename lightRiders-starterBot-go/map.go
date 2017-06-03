@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/vendelin8/lightriders-starterbot-golang/utils"
-	//	log "gopkg.in/inconshreveable/log15.v2"
 )
 
 var (
@@ -24,7 +23,7 @@ func mapParseSetting(key, value string) {
 		ownBot.Id = atoi(value)
 		oppBot.Id = (ownBot.Id + 1) % 2
 		oppBot.IdStr = strconv.Itoa(oppBot.Id)[0]
-		opts.OmitReplay = opts.OmitReplay || ownBot.Id != 1
+		setSaveReplay(ownBot.Id != 1)
 	case "field_width":
 		field.Width = atoi(value)
 	case "field_height":
@@ -50,18 +49,12 @@ func mapParse(in string) {
 		}
 		MoveToMap(ownBot, in)
 		MoveToMap(oppBot, in)
-		if !opts.OmitReplay {
-			createReplayFile()
-		}
+		createReplayFile()
 	} else { //updating the map only
 		//updating own position
 		ownBot.MoveField(field)
 		oppBot.SetAndMoveField(in, field)
-		if !opts.OmitReplay {
-			writeReplayDirection(oppBot.LastMove)
-			writeReplayDirection(ownBot.LastMove)
-			replayWriter.Flush()
-		}
+		saveMovesToReplay()
 	}
 }
 

@@ -3,7 +3,6 @@ package main
 
 import (
 	"bufio"
-	"fmt"
 	"io/ioutil"
 	"os"
 	"path"
@@ -106,11 +105,13 @@ func (p *Player) UnMove() {
 }
 
 func main() {
-	_, err := flags.ParseArgs(&opts, os.Args)
-
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(0)
+	var err error
+	if _, err = flags.ParseArgs(&opts, os.Args); err != nil {
+		if flagsErr, ok := err.(*flags.Error); ok && flagsErr.Type == flags.ErrHelp {
+			os.Exit(0)
+		} else {
+			os.Exit(1)
+		}
 	}
 
 	log.New() //initializing logger
