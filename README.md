@@ -29,8 +29,8 @@ Add the bot to the ```wrapper-commands.json``` config like this:
 ```
 
 ## Replayer
-![Screenshot of the replayer](http://vendelin.square7.ch/l/sc.png "Replayer running in the console")
-If you want to replay, call
+<img alt="Screenshot of the replayer" style="float: right;" src="http://vendelin.square7.ch/l/sc.png" title="Replayer running in the console"/>
+Call the following:
 ```
 go install github.com/vendelin8/lightriders-starterbot-golang/replayer && replayer
 ```
