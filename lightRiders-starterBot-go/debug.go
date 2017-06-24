@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"encoding/json"
 	"os"
 	"path"
 	"time"
@@ -21,15 +22,14 @@ func debugInit() {
 	log.Root().SetHandler(log.MultiHandler(
 		log.LvlFilterHandler(log.LvlWarn, log.CallerStackHandler("%+v", handler)),
 		log.MatchFilterHandler("lvl", log.LvlInfo, handler)))
-
 }
 
 func logI(msg string, ctx ...interface{}) {
-	log.Info(msg, ctx)
+	log.Info(msg, ctx...)
 }
 
 func logE(msg string, ctx ...interface{}) {
-	log.Error(msg, ctx)
+	log.Error(msg, ctx...)
 }
 
 func catchRuntimeErrors() { //startup error check
@@ -42,14 +42,6 @@ func setSaveReplay(in bool) {
 	saveReplay = true
 }
 
-func writeReplayInt(value int) {
-	replayWriter.WriteRune(utils.REPLAY_INC + rune(value))
-}
-
-func writeReplayDirection(value utils.Direction) {
-	replayWriter.WriteRune(utils.REPLAY_INC + rune(value))
-}
-
 func createReplayFile() {
 	os.Mkdir(utils.REPLAY_DIR, 0755)
 	fp, err := os.Create(path.Join(utils.REPLAY_DIR, time.Now().Format("20060102150405.txt")))
@@ -58,20 +50,22 @@ func createReplayFile() {
 	}
 	replayWriter = bufio.NewWriter(fp)
 
-	//first two runes are the width and height of the replay
-	writeReplayInt(field.Width)
-	writeReplayInt(field.Height)
-
-	//then x, y positions of the first and second players
-	writeReplayInt(oppBot.X)
-	writeReplayInt(oppBot.Y)
-	writeReplayInt(ownBot.X)
-	writeReplayInt(ownBot.Y)
+	rf := utils.ReplayFormat{field.Width, field.Height, ownBot.X, ownBot.Y, oppBot.X, oppBot.Y}
+	b, err := json.Marshal(rf)
+	if err != nil {
+		panic(err)
+	}
+	replayWriter.Write(b)
 	replayWriter.Flush()
 }
 
 func saveMovesToReplay() {
-	writeReplayDirection(oppBot.LastMove)
-	writeReplayDirection(ownBot.LastMove)
+	replayWriter.WriteRune(utils.REPLAY_SEPARATOR)
+	rm := utils.ReplayMove{ownBot.LastMove, oppBot.LastMove}
+	b, err := json.Marshal(rm)
+	if err != nil {
+		panic(err)
+	}
+	replayWriter.Write(b)
 	replayWriter.Flush()
 }

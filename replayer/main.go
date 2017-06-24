@@ -3,6 +3,8 @@ package main
 
 import (
 	"bufio"
+	"bytes"
+	"encoding/json"
 	"io/ioutil"
 	"os"
 	"path"
@@ -19,13 +21,13 @@ var (
 	w, h        int //width and height of the termbox
 	index       int //the current step
 	bg, fg      termbox.Attribute
-	mapW, mapH  int //width and height of the field
 	replayReder *bufio.Reader
 	ticker      *time.Ticker
 	tickerC     <-chan time.Time
 	top, left   int //left and top of the centered field
 	p0, p1      *Player
 	running     bool
+	rf          utils.ReplayFormat
 )
 
 type Options struct {
@@ -128,8 +130,8 @@ func main() {
 	}()
 
 	if len(opts.File) == 0 { //searching for last replay
-		fileInfos, err := ioutil.ReadDir(utils.REPLAY_DIR)
-		if err != nil {
+		var fileInfos []os.FileInfo
+		if fileInfos, err = ioutil.ReadDir(utils.REPLAY_DIR); err != nil {
 			panic(err)
 		}
 		latest := time.Now().AddDate(-100, 0, 0)
@@ -146,17 +148,16 @@ func main() {
 		}
 	}
 
-	fp, err := os.Open(opts.File) //reading replay
-	if err != nil {
+	var b []byte
+	if b, err = ioutil.ReadFile(opts.File); err != nil {
 		panic(err)
 	}
-	defer fp.Close()
-	replayReder = bufio.NewReader(fp)
-	mapW = readReplayInt() //first 2 runes: width and height
-	mapH = readReplayInt()
+	bs := bytes.Split(b, []byte{utils.REPLAY_SEPARATOR})
+	if err = json.Unmarshal(bs[0], &rf); err != nil {
+		panic(err)
+	}
 
-	err = termbox.Init() //termbox console drawing init
-	if err != nil {
+	if err = termbox.Init(); err != nil { //termbox console drawing init
 		panic(err)
 	}
 	defer termbox.Close()
@@ -176,37 +177,36 @@ func main() {
 	printStr(0, 8, "half speed      : {")
 	printStr(0, 9, "double speed    : }")
 
-	left = (w - mapW) / 2 //init map with dots
-	top = (h - mapH) / 2
-	for i := 0; i < mapH; i++ {
-		for j := 0; j < mapW; j++ {
+	left = (w - rf.FieldWidth) / 2 //init map with dots
+	top = (h - rf.FieldHeight) / 2
+	for i := 0; i < rf.FieldHeight; i++ {
+		for j := 0; j < rf.FieldWidth; j++ {
 			termbox.SetCell(left+j, top+i, '.', fg, bg)
 		}
 	}
 
 	p0 = new(Player) //init players
-	p0.X = readReplayInt()
-	p0.Y = readReplayInt()
+	p0.X = rf.OppX
+	p0.Y = rf.OppY
 	p0.IdStr = '0'
 	p0.Moves = make([]utils.Direction, 0)
 	p0.Fg = termbox.ColorGreen
 	p0.Fill()
 	p1 = new(Player)
-	p1.X = readReplayInt()
-	p1.Y = readReplayInt()
+	p1.X = rf.OwnX
+	p1.Y = rf.OwnY
 	p1.IdStr = '1'
 	p1.Moves = make([]utils.Direction, 0)
 	p1.Fg = termbox.ColorRed
 	p1.Fill()
 	termbox.Flush()
-	var d utils.Direction
-	for { //load moves
-		d = readReplayDirection()
-		if d == utils.Wtf {
-			break
+	var rm utils.ReplayMove
+	for i := 1; i < len(bs); i++ { //load moves
+		if err = json.Unmarshal(bs[i], &rm); err != nil {
+			panic(err)
 		}
-		p0.Moves = append(p0.Moves, d)
-		p1.Moves = append(p1.Moves, readReplayDirection())
+		p0.Moves = append(p0.Moves, rm.OppMove)
+		p1.Moves = append(p1.Moves, rm.OwnMove)
 	}
 	p0.LastMove = p0.Moves[0]
 	p1.LastMove = p1.Moves[0]
@@ -274,19 +274,6 @@ func main() {
 	}
 }
 
-func readReplayInt() int {
-	r, _, _ := replayReder.ReadRune()
-	return int(r) - utils.REPLAY_INC
-}
-
-func readReplayDirection() utils.Direction {
-	r, _, err := replayReder.ReadRune()
-	if err != nil {
-		return utils.Wtf
-	}
-	return utils.Direction(r - utils.REPLAY_INC)
-}
-
 func printStr(x, y int, text string) {
 	for i, value := range text {
 		termbox.SetCell(x+i, y, rune(value), fg, bg)
@@ -304,7 +291,7 @@ func forward(turnCount int) bool {
 		if index+1 >= len(p0.Moves) {
 			p0.MoveFill(1)
 			p1.MoveFill(1)
-			printCenter(top+mapH+1, "Press any key to quit...")
+			printCenter(top+rf.FieldHeight+1, "Press any key to quit...")
 			termbox.PollEvent()
 			return true
 		}
