@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path"
+	"strconv"
 	"time"
 
 	"github.com/vendelin8/lightriders-starterbot-golang/utils"
@@ -14,6 +15,7 @@ import (
 var (
 	saveReplay   bool
 	replayWriter *bufio.Writer
+	round        int
 )
 
 func debugInit() {
@@ -61,11 +63,13 @@ func createReplayFile() {
 
 func saveMovesToReplay() {
 	replayWriter.WriteRune(utils.REPLAY_SEPARATOR)
-	rm := utils.ReplayMove{ownBot.LastMove, oppBot.LastMove}
+	rm := utils.ReplayMove{ownBot.LastMove, oppBot.LastMove,
+		[]string{strconv.Itoa(round)}} //example for debugging variables
 	b, err := json.Marshal(rm)
 	if err != nil {
 		panic(err)
 	}
 	replayWriter.Write(b)
 	replayWriter.Flush()
+	round++
 }

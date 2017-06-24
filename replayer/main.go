@@ -17,22 +17,26 @@ import (
 )
 
 var (
-	opts        Options
-	w, h        int //width and height of the termbox
-	index       int //the current step
-	bg, fg      termbox.Attribute
-	replayReder *bufio.Reader
-	ticker      *time.Ticker
-	tickerC     <-chan time.Time
-	top, left   int //left and top of the centered field
-	p0, p1      *Player
-	running     bool
-	rf          utils.ReplayFormat
+	opts         Options
+	w, h         int //width and height of the termbox
+	index        int //the current step
+	bg, fg       termbox.Attribute
+	replayReder  *bufio.Reader
+	ticker       *time.Ticker
+	tickerC      <-chan time.Time
+	top, left    int //left and top of the centered field
+	p0, p1       *Player
+	running      bool
+	rf           utils.ReplayFormat
+	maxDebugLens []int
+	debugValues  [][]string
+	debugMiddle  int
 )
 
 type Options struct {
-	File  string `short:"f" long:"file" description:"file to replay, last one will used if empty"`
-	Delay int    `short:"d" long:"delay" description:"delay in millisec between turns" default:"600"`
+	File   string `short:"f" long:"file" description:"file to replay, last one will used if empty"`
+	Delay  int    `short:"d" long:"delay" description:"delay in millisec between turns" default:"600"`
+	InvCol bool   `short:"i" long:"invert-colors" description:"dark terminal colors"`
 }
 
 type Player struct {
@@ -148,7 +152,7 @@ func main() {
 		}
 	}
 
-	var b []byte
+	var b []byte //parsing replay file
 	if b, err = ioutil.ReadFile(opts.File); err != nil {
 		panic(err)
 	}
@@ -161,23 +165,96 @@ func main() {
 		panic(err)
 	}
 	defer termbox.Close()
-	bg = termbox.ColorWhite
-	fg = termbox.ColorBlack
+	bg = termbox.ColorDefault
+	if opts.InvCol {
+		fg = termbox.ColorWhite
+	} else {
+		fg = termbox.ColorBlack
+	}
 	w, h = termbox.Size()
 
-	//info to the screen
-	printStr(0, 0, "quit            : Ctrl+C, Esc")
-	printStr(0, 1, "back 1 turn     : Left")
-	printStr(0, 2, "back 10 turns   : Down")
-	printStr(0, 3, "forward 1 turn  : Right")
-	printStr(0, 4, "forward 10 turns: Up")
-	printStr(0, 5, "play/pause      : Space")
-	printStr(0, 6, "-10% speed      : [")
-	printStr(0, 7, "+10% speed      : ]")
-	printStr(0, 8, "half speed      : {")
-	printStr(0, 9, "double speed    : }")
+	//key info to the screen
+	keys := []string{"quit", "Ctrl+C, Esc",
+		"back 1 turn", "Left",
+		"back 10 turns", "Down",
+		"forward 1 turn", "Right",
+		"forward 10 turns", "Up",
+		"play/pause", "Space",
+		"-10% speed", "[",
+		"+10% speed", "]",
+		"half speed", "{",
+		"double speed", "}"}
+	var maxLeft, maxRight, i, j int
+	for i = 0; i < len(keys); i += 2 { //getting max lengths for padding
+		if len(keys[i]) > maxLeft {
+			maxLeft = len(keys[i])
+		}
+		if len(keys[i+1]) > maxRight {
+			maxRight = len(keys[i+1])
+		}
+	}
+	left = w - maxLeft - maxRight - 2
+	middle := w - maxRight
+	for i = 0; i < len(keys); i += 2 {
+		printStr(left, i/2, keys[i])
+		termbox.SetCell(middle-2, i/2, ':', fg, bg)
+		printStr(middle, i/2, keys[i+1])
+	}
 
-	left = (w - rf.FieldWidth) / 2 //init map with dots
+	var key string
+	for _, key = range utils.DEBUG_VARS { //getting padding for debug vars
+		if len(key) > debugMiddle {
+			debugMiddle = len(key)
+		}
+	}
+	for i, key = range utils.DEBUG_VARS { //printing debug vars' label
+		printStr(i, 0, key)
+		termbox.SetCell(debugMiddle, i, ':', fg, bg)
+		printStr(middle, i/2, keys[i+1])
+	}
+	debugMiddle += 2
+
+	rounds := len(bs) - 1
+	p0 = new(Player) //init players
+	p0.X = rf.OppX
+	p0.Y = rf.OppY
+	p0.IdStr = '0'
+	p0.Moves = make([]utils.Direction, rounds)
+	p0.Fg = termbox.ColorGreen
+	p1 = new(Player)
+	p1.X = rf.OwnX
+	p1.Y = rf.OwnY
+	p1.IdStr = '1'
+	p1.Moves = make([]utils.Direction, rounds)
+	p1.Fg = termbox.ColorRed
+	var rm utils.ReplayMove
+	maxDebugLens = make([]int, len(utils.DEBUG_VARS))
+	debugValues = make([][]string, rounds)
+	for i = 0; i < rounds; i++ { //load moves
+		if err = json.Unmarshal(bs[i+1], &rm); err != nil {
+			panic(err)
+		}
+		p0.Moves[i] = rm.OppMove
+		p1.Moves[i] = rm.OwnMove
+		debugValues[i] = make([]string, len(utils.DEBUG_VARS))
+		for j, key = range rm.Others {
+			if len(key) > maxDebugLens[j] {
+				maxDebugLens[j] = len(key)
+			}
+			debugValues[i][j] = key
+		}
+	}
+	p0.LastMove = p0.Moves[0]
+	p1.LastMove = p1.Moves[0]
+
+	left = 0 //init map with dots to the middle
+	for _, i = range maxDebugLens {
+		if i > left {
+			left = i
+		}
+	}
+	log.Info("ws", "left", left, "w", w, "fw", rf.FieldWidth, "ml", maxLeft, "mr", maxRight, "dm", debugMiddle)
+	left = left + debugMiddle + (w-rf.FieldWidth-left-maxLeft-maxRight-debugMiddle)/2
 	top = (h - rf.FieldHeight) / 2
 	for i := 0; i < rf.FieldHeight; i++ {
 		for j := 0; j < rf.FieldWidth; j++ {
@@ -185,34 +262,11 @@ func main() {
 		}
 	}
 
-	p0 = new(Player) //init players
-	p0.X = rf.OppX
-	p0.Y = rf.OppY
-	p0.IdStr = '0'
-	p0.Moves = make([]utils.Direction, 0)
-	p0.Fg = termbox.ColorGreen
-	p0.Fill()
-	p1 = new(Player)
-	p1.X = rf.OwnX
-	p1.Y = rf.OwnY
-	p1.IdStr = '1'
-	p1.Moves = make([]utils.Direction, 0)
-	p1.Fg = termbox.ColorRed
-	p1.Fill()
-	termbox.Flush()
-	var rm utils.ReplayMove
-	for i := 1; i < len(bs); i++ { //load moves
-		if err = json.Unmarshal(bs[i], &rm); err != nil {
-			panic(err)
-		}
-		p0.Moves = append(p0.Moves, rm.OppMove)
-		p1.Moves = append(p1.Moves, rm.OwnMove)
-	}
-	p0.LastMove = p0.Moves[0]
-	p1.LastMove = p1.Moves[0]
-
 	running = false
 	index = 0
+	p0.Fill()
+	p1.Fill()
+	writeDebugValues()
 
 	defer func() { //init main loop
 		if running {
@@ -285,6 +339,16 @@ func printCenter(y int, text string) {
 	termbox.Flush()
 }
 
+func writeDebugValues() {
+	for i, key := range debugValues[index] {
+		printStr(debugMiddle, i, key)
+		for j := len(key); j < maxDebugLens[i]; j++ {
+			termbox.SetCell(debugMiddle+j, i, ' ', fg, bg)
+		}
+	}
+	termbox.Flush()
+}
+
 func forward(turnCount int) bool {
 	//go forward @turnCount turns, returns true if ended
 	for ; turnCount > 0; turnCount-- {
@@ -298,7 +362,7 @@ func forward(turnCount int) bool {
 		index++
 		p0.MoveFill(0)
 		p1.MoveFill(0)
-		termbox.Flush()
+		writeDebugValues()
 	}
 	return false
 }
@@ -309,7 +373,7 @@ func backward(turnCount int) {
 		index--
 		p0.UnMove()
 		p1.UnMove()
-		termbox.Flush()
+		writeDebugValues()
 	}
 }
 
