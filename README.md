@@ -29,7 +29,7 @@ Add the bot to the ```wrapper-commands.json``` config like this:
 ```
 
 ## Replayer
-<img alt="Screenshot of the replayer" style="float: right;" src="http://vendelin.square7.ch/l/sc.png" title="Replayer running in the console"/>
+<img alt="Screenshot of the replayer" style="float: right;" src="http://vendelin.square7.ch/l/sc.png?" title="Replayer running in the console"/>
 Call the following:
 
 ```
