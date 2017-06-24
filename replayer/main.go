@@ -36,7 +36,7 @@ var (
 type Options struct {
 	File   string `short:"f" long:"file" description:"file to replay, last one will used if empty"`
 	Delay  int    `short:"d" long:"delay" description:"delay in millisec between turns" default:"600"`
-	InvCol bool   `short:"i" long:"invert-colors" description:"dark terminal colors"`
+	InvCol bool   `short:"i" long:"invert-colors" description:"invert colors for dark terminal backgrounds"`
 }
 
 type Player struct {
@@ -253,7 +253,6 @@ func main() {
 			left = i
 		}
 	}
-	log.Info("ws", "left", left, "w", w, "fw", rf.FieldWidth, "ml", maxLeft, "mr", maxRight, "dm", debugMiddle)
 	left = left + debugMiddle + (w-rf.FieldWidth-left-maxLeft-maxRight-debugMiddle)/2
 	top = (h - rf.FieldHeight) / 2
 	for i := 0; i < rf.FieldHeight; i++ {
